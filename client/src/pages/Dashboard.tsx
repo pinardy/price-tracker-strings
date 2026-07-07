@@ -12,6 +12,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [source, setSource] = useState('');
+  const [instrument, setInstrument] = useState('');
 
   useEffect(() => {
     api.products().then(setProducts).catch((err) => setError(String(err)));
@@ -23,6 +24,12 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     return [...ids].sort();
   }, [products]);
 
+  const instruments = useMemo(() => {
+    const order = ['violin', 'viola', 'cello', 'bass'];
+    const present = new Set((products ?? []).map((p) => p.instrument));
+    return order.filter((i) => present.has(i as Product['instrument']));
+  }, [products]);
+
   const filtered = useMemo(() => {
     if (!products) return null;
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -31,6 +38,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     return products.filter((p) => {
       const haystack = `${p.name} ${p.brand ?? ''} ${p.variant_desc ?? ''} ${p.instrument}`.toLowerCase();
       if (!tokens.every((t) => haystack.includes(t))) return false;
+      if (instrument && p.instrument !== instrument) return false;
       if (source && !p.links.some((l) => l.provider_id === source)) return false;
       // Price filter compares the current lowest SGD price.
       const price = p.lowest?.price_sgd;
@@ -38,7 +46,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
       if (Number.isFinite(max) && (price == null || price > max)) return false;
       return true;
     });
-  }, [products, query, minPrice, maxPrice, source]);
+  }, [products, query, minPrice, maxPrice, source, instrument]);
 
   if (error) return <div className="card error-text">Failed to load products: {error}</div>;
   if (!products || !filtered) return <div className="card muted">Loading…</div>;
@@ -57,7 +65,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     );
   }
 
-  const filtersActive = query || minPrice || maxPrice || source;
+  const filtersActive = query || minPrice || maxPrice || source || instrument;
 
   return (
     <div className="card table-scroll">
@@ -69,6 +77,14 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <select value={instrument} onChange={(e) => setInstrument(e.target.value)}>
+          <option value="">All instruments</option>
+          {instruments.map((i) => (
+            <option key={i} value={i}>
+              {i === 'bass' ? 'Double bass' : i[0].toUpperCase() + i.slice(1)}
+            </option>
+          ))}
+        </select>
         <select value={source} onChange={(e) => setSource(e.target.value)}>
           <option value="">All sources</option>
           {sources.map((id) => (
@@ -111,6 +127,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                 setMinPrice('');
                 setMaxPrice('');
                 setSource('');
+                setInstrument('');
               }}
             >
               Clear
