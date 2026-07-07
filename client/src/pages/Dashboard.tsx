@@ -13,6 +13,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
   const [maxPrice, setMaxPrice] = useState('');
   const [source, setSource] = useState('');
   const [instrument, setInstrument] = useState('');
+  const [sort, setSort] = useState('newest');
 
   useEffect(() => {
     api.products().then(setProducts).catch((err) => setError(String(err)));
@@ -48,8 +49,28 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     });
   }, [products, query, minPrice, maxPrice, source, instrument]);
 
+  const sorted = useMemo(() => {
+    if (!filtered) return null;
+    if (sort === 'newest') return filtered; // server order: created_at DESC
+    const rows = [...filtered];
+    const price = (p: Product) => p.lowest?.price_sgd ?? null;
+    if (sort === 'price-asc' || sort === 'price-desc') {
+      rows.sort((a, b) => {
+        const pa = price(a);
+        const pb = price(b);
+        if (pa == null && pb == null) return 0;
+        if (pa == null) return 1; // unpriced rows always last
+        if (pb == null) return -1;
+        return sort === 'price-asc' ? pa - pb : pb - pa;
+      });
+    } else if (sort === 'name') {
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return rows;
+  }, [filtered, sort]);
+
   if (error) return <div className="card error-text">Failed to load products: {error}</div>;
-  if (!products || !filtered) return <div className="card muted">Loading…</div>;
+  if (!products || !filtered || !sorted) return <div className="card muted">Loading…</div>;
   if (!products.length) {
     return (
       <div className="card">
@@ -115,6 +136,12 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
           value={maxPrice}
           onChange={(e) => setMaxPrice(e.target.value)}
         />
+        <select value={sort} onChange={(e) => setSort(e.target.value)} title="Sort">
+          <option value="newest">Newest first</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+          <option value="name">Name A–Z</option>
+        </select>
         {filtersActive && (
           <>
             <span className="muted">
@@ -146,7 +173,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((p) => (
+          {sorted.map((p) => (
             <tr key={p.id}>
               <td data-label="Product">
                 <Link to={`/products/${p.id}`}><strong>{p.name}</strong></Link>{' '}
