@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, firstRow } from './connection.js';
+import { allRows, db, firstRow, run } from './connection.js';
 
 const schemaPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.sql');
 
@@ -45,19 +45,45 @@ function splitStatements(script: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Version tracking lives in a schema_version table because Turso rejects
+ * PRAGMA user_version writes. Pre-existing databases are bootstrapped from
+ * the pragma (local files) or from which tables exist (imported DBs).
+ */
+async function currentVersion(): Promise<number> {
+  await db.execute('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)');
+  const row = await firstRow<{ version: number }>('SELECT version FROM schema_version');
+  if (row) return Number(row.version);
+  const detected = await detectLegacyVersion();
+  await run('INSERT INTO schema_version (version) VALUES (?)', [detected]);
+  return detected;
+}
+
+async function detectLegacyVersion(): Promise<number> {
+  try {
+    const row = await firstRow<{ user_version: number }>('PRAGMA user_version');
+    if (Number(row?.user_version) > 0) return Number(row!.user_version);
+  } catch {
+    // pragma unsupported — fall through to table detection
+  }
+  const tables = await allRows<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table'",
+  );
+  const names = new Set(tables.map((t) => t.name));
+  if (names.has('alert_rules')) return 3;
+  if (names.has('fx_rates')) return 2;
+  if (names.has('products')) return 1;
+  return 0;
+}
+
 export async function migrate(): Promise<void> {
-  const row = await firstRow<{ user_version: number }>('PRAGMA user_version');
-  const current = Number(row?.user_version ?? 0);
+  const current = await currentVersion();
   for (let version = current; version < MIGRATIONS.length; version++) {
     const statements = splitStatements(MIGRATIONS[version]());
-    try {
-      await db.batch([...statements, `PRAGMA user_version = ${version + 1}`], 'write');
-    } catch {
-      // Some servers reject PRAGMA inside a batch — run it as a follow-up.
-      // (Only reachable for hand-run migrations; small non-atomic window is fine.)
-      await db.batch(statements, 'write');
-      await db.execute(`PRAGMA user_version = ${version + 1}`);
-    }
+    await db.batch(
+      [...statements, { sql: 'UPDATE schema_version SET version = ?', args: [version + 1] }],
+      'write',
+    );
     console.log(`[db] migrated schema to version ${version + 1}`);
   }
 }
