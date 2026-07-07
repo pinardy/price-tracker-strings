@@ -71,8 +71,8 @@ To test the static build locally:
 
 ```bash
 npm run export:static -w server
-VITE_STATIC=1 VITE_BASE=/price-tracker-violin-strings/ npm run build -w client
-cd client && VITE_BASE=/price-tracker-violin-strings/ npx vite preview
+VITE_STATIC=1 VITE_BASE=/price-tracker-strings/ npm run build -w client
+cd client && VITE_BASE=/price-tracker-strings/ npx vite preview
 ```
 
 ## Notes & etiquette
