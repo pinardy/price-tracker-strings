@@ -119,7 +119,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
         )}
       </div>
       {!filtered.length && <p className="muted">No products match the current filters.</p>}
-      <table>
+      <table className="responsive-table">
         <thead>
           <tr>
             <th>Product</th>
@@ -131,12 +131,12 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
         <tbody>
           {filtered.map((p) => (
             <tr key={p.id}>
-              <td>
+              <td data-label="Product">
                 <Link to={`/products/${p.id}`}><strong>{p.name}</strong></Link>{' '}
                 <span className="instrument-pill">{p.instrument}</span>
                 {p.variant_desc && <div className="muted">{p.variant_desc}</div>}
               </td>
-              <td>
+              <td data-label="Lowest now">
                 {p.lowest ? (
                   <>
                     <span className="price-chip lowest">
@@ -150,7 +150,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                   <span className="muted">no data yet</span>
                 )}
               </td>
-              <td>
+              <td data-label="Prices by source">
                 {p.links.map((l) => (
                   <div key={l.id} style={{ marginBottom: 4 }}>
                     <ProviderTag id={l.provider_id} />
@@ -166,7 +166,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                   </div>
                 ))}
               </td>
-              <td>
+              <td data-label="Target">
                 {p.target_price != null ? (
                   <span
                     className="price-chip"

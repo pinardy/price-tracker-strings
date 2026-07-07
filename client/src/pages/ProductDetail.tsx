@@ -67,7 +67,7 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
   return (
     <>
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0 }}>{product.name}</h2>
           <span className="instrument-pill">{product.instrument}</span>
           <span style={{ flex: 1 }} />
@@ -105,7 +105,7 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
               : 'No target price set.'}
           </p>
         ) : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="muted">Alert when any price (converted to SGD) is at or below S$</span>
             <input
               type="number"
@@ -135,21 +135,21 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
             </button>
           )}
         </div>
-        <table>
+        <table className="responsive-table">
           <thead>
             <tr><th>Source</th><th>Listing</th><th>Latest price</th>{!IS_STATIC && <th />}</tr>
           </thead>
           <tbody>
             {product.links.map((link) => (
               <tr key={link.id}>
-                <td><ProviderTag id={link.provider_id} /></td>
-                <td>
+                <td data-label="Source"><ProviderTag id={link.provider_id} /></td>
+                <td data-label="Listing">
                   <a href={link.url} target="_blank" rel="noreferrer">
                     {link.title ?? link.query ?? link.url}
                   </a>
                   {link.query && <div className="muted">tracked query: “{link.query}”</div>}
                 </td>
-                <td>
+                <td data-label="Latest price">
                   {link.latest_price != null ? (
                     <>
                       <span className="price-chip">

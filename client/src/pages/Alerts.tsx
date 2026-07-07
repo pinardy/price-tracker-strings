@@ -40,15 +40,15 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
         )}
       </div>
       {!alerts.length && <p className="muted">No alerts. Set a target price on a product to get one when a source drops below it.</p>}
-      <table>
+      <table className="responsive-table">
         <tbody>
           {alerts.map((alert) => (
             <tr key={alert.id} style={alert.acknowledged ? { opacity: 0.55 } : undefined}>
-              <td>
+              <td data-label="Product">
                 <Link to={`/products/${alert.product_id}`}><strong>{alert.product_name}</strong></Link>
                 <div className="muted">{new Date(alert.created_at + 'Z').toLocaleString()}</div>
               </td>
-              <td>
+              <td data-label="Price vs target">
                 {alert.provider_id && <ProviderTag id={alert.provider_id} />}
                 <span className="price-chip lowest">{formatPrice(alert.price, alert.currency)}</span>
                 <span className="muted"> ≤ target {formatPrice(alert.target_price, alert.currency)}</span>

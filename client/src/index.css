@@ -27,11 +27,12 @@ a:hover { text-decoration: underline; }
 .app-header {
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  padding: 0 24px;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
-  gap: 24px;
-  height: 56px;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  min-height: 56px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -185,6 +186,44 @@ tr:last-child td { border-bottom: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .table-scroll { overflow-x: auto; }
+
+@media (max-width: 700px) {
+  .app-header { padding: 10px 14px; gap: 10px 16px; }
+  .app-header .status-bar { flex-basis: 100%; }
+  main { padding: 14px 10px; }
+  .card { padding: 14px; }
+
+  /* Tables collapse into stacked cards; column headers become row labels. */
+  .responsive-table thead { display: none; }
+  .responsive-table, .responsive-table tbody { display: block; }
+  .responsive-table tr {
+    display: block;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+  .responsive-table tr:last-child { border-bottom: none; }
+  .responsive-table td {
+    display: block;
+    border: none;
+    padding: 4px 0;
+  }
+  .responsive-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .responsive-table td:empty { display: none; }
+
+  .filter-bar .filter-search { flex-basis: 100%; }
+
+  /* Larger touch targets */
+  button { padding: 8px 14px; }
+  button.small { padding: 6px 12px; }
+}
 
 .filter-bar {
   display: flex;
