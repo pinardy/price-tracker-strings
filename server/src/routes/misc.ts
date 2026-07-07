@@ -49,6 +49,12 @@ miscRouter.delete('/links/:id', (req, res) => {
   res.status(204).end();
 });
 
+miscRouter.delete('/reviews/:id', (req, res) => {
+  const result = db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
+  if (!result.changes) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+});
+
 miscRouter.get('/alerts', (req, res) => {
   res.json(listAlerts(req.query.unacknowledged === '1'));
 });

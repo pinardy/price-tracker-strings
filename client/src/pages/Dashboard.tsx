@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, formatDualPrice, formatPrice, IS_STATIC, Product } from '../api';
 import { PROVIDER_LABELS, ProviderTag } from '../components/ProviderTag';
+import { Stars } from '../components/Stars';
 
 const STALE_HOURS = 36;
 
@@ -179,6 +180,12 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                 <Link to={`/products/${p.id}`}><strong>{p.name}</strong></Link>{' '}
                 <span className="instrument-pill">{p.instrument}</span>
                 {p.variant_desc && <div className="muted">{p.variant_desc}</div>}
+                {p.rating_avg != null && (
+                  <div>
+                    <Stars value={p.rating_avg} size={13} />{' '}
+                    <span className="muted">{p.rating_avg} ({p.rating_count})</span>
+                  </div>
+                )}
               </td>
               <td data-label="Lowest now">
                 {p.lowest ? (

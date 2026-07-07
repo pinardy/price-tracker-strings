@@ -31,6 +31,8 @@ export interface Product {
   target_currency: string;
   is_active: number;
   created_at: string;
+  rating_avg: number | null;
+  rating_count: number;
   links: ProductLink[];
   lowest: {
     price: number;
@@ -84,6 +86,15 @@ export interface Alert {
   currency: string;
   target_price: number;
   acknowledged: number;
+  created_at: string;
+}
+
+export interface Review {
+  id: number;
+  product_id: number;
+  author: string | null;
+  rating: number;
+  body: string | null;
   created_at: string;
 }
 
@@ -146,6 +157,19 @@ export const api = {
     const cutoff = Date.now() - days * 86_400_000;
     return rows.filter((r) => new Date(r.scraped_at + 'Z').getTime() >= cutoff);
   },
+  reviews: (productId: number | string) =>
+    IS_STATIC
+      ? staticData<Review[]>(`reviews/${productId}.json`)
+      : request<Review[]>(`/api/products/${productId}/reviews`),
+  addReview: (productId: number | string, body: { rating: number; author?: string; body?: string }) =>
+    IS_STATIC
+      ? readOnly()
+      : request<{ id: number }>(`/api/products/${productId}/reviews`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+  deleteReview: (id: number) =>
+    IS_STATIC ? readOnly() : request<void>(`/api/reviews/${id}`, { method: 'DELETE' }),
   addLink: (productId: number | string, link: SearchResult) =>
     IS_STATIC
       ? readOnly()

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { runFetch } from '../services/fetcher.js';
-import { getHistory, getProduct, listProducts } from '../services/queries.js';
+import { getHistory, getProduct, listProducts, listReviews } from '../services/queries.js';
 
 export const productsRouter = Router();
 
@@ -117,6 +117,30 @@ productsRouter.delete('/:id', (req, res) => {
 productsRouter.get('/:id/history', (req, res) => {
   const days = Math.min(parseInt(String(req.query.days ?? '90'), 10) || 90, 3650);
   res.json(getHistory(req.params.id, days));
+});
+
+const createReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  author: z.string().trim().max(80).optional(),
+  body: z.string().trim().max(5000).optional(),
+});
+
+productsRouter.get('/:id/reviews', (req, res) => {
+  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
+  if (!product) return res.status(404).json({ error: 'not found' });
+  res.json(listReviews(req.params.id));
+});
+
+productsRouter.post('/:id/reviews', (req, res) => {
+  const parsed = createReviewSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
+  if (!product) return res.status(404).json({ error: 'not found' });
+  const { rating, author, body } = parsed.data;
+  const result = db
+    .prepare('INSERT INTO reviews (product_id, rating, author, body) VALUES (?, ?, ?, ?)')
+    .run(req.params.id, rating, author || null, body || null);
+  res.status(201).json({ id: result.lastInsertRowid });
 });
 
 productsRouter.post('/:id/links', (req, res) => {

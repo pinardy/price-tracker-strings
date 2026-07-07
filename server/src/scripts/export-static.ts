@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from '../db/migrate.js';
 import { getEnabledProviders, getLastRun } from '../services/fetcher.js';
-import { getHistory, getProduct, listAlerts, listProducts } from '../services/queries.js';
+import { getHistory, getProduct, listAlerts, listProducts, listReviews } from '../services/queries.js';
 
 // Exports the read API as JSON files for the static (GitHub Pages) build.
 // The client's static mode fetches these instead of hitting /api.
@@ -15,6 +15,7 @@ migrate();
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(outDir, 'products'), { recursive: true });
 fs.mkdirSync(path.join(outDir, 'history'), { recursive: true });
+fs.mkdirSync(path.join(outDir, 'reviews'), { recursive: true });
 
 const write = (relPath: string, data: unknown) =>
   fs.writeFileSync(path.join(outDir, relPath), JSON.stringify(data));
@@ -24,6 +25,7 @@ write('products.json', products);
 for (const product of products) {
   write(`products/${product.id}.json`, getProduct(product.id));
   write(`history/${product.id}.json`, getHistory(product.id, 365));
+  write(`reviews/${product.id}.json`, listReviews(product.id));
 }
 write('alerts.json', listAlerts(false));
 write('status.json', { running: false, lastRun: getLastRun() });

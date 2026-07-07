@@ -23,6 +23,19 @@ const MIGRATIONS: (() => void)[] = [
       UPDATE price_snapshots SET price_sgd = price WHERE currency = 'SGD';
       UPDATE products SET target_currency = 'SGD';
     `),
+  // v3: user reviews on products
+  () =>
+    db.exec(`
+      CREATE TABLE reviews (
+        id         INTEGER PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        author     TEXT,
+        rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        body       TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_reviews_product ON reviews(product_id);
+    `),
 ];
 
 export function migrate(): void {

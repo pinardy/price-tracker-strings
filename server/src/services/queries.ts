@@ -10,6 +10,11 @@ const LINKS_WITH_LATEST = `
     SELECT id FROM price_snapshots WHERE link_id = l.id ORDER BY scraped_at DESC, id DESC LIMIT 1
   )`;
 
+/** Per-product rating aggregate, e.g. { 3: { rating_avg: 4.5, rating_count: 2 } }. */
+const RATING_SUMMARY = `
+  SELECT product_id, ROUND(AVG(rating), 1) AS rating_avg, COUNT(*) AS rating_count
+  FROM reviews GROUP BY product_id`;
+
 export function listProducts(): any[] {
   const products = db
     .prepare("SELECT * FROM products WHERE is_active = 1 ORDER BY created_at DESC")
@@ -17,6 +22,9 @@ export function listProducts(): any[] {
   const links = db
     .prepare(`${LINKS_WITH_LATEST} WHERE l.is_active = 1`)
     .all() as any[];
+  const ratings = new Map(
+    (db.prepare(RATING_SUMMARY).all() as any[]).map((r) => [r.product_id, r]),
+  );
 
   const byProduct = new Map<number, any[]>();
   for (const link of links) {
@@ -33,6 +41,8 @@ export function listProducts(): any[] {
       : lowestSingleCurrency(priced);
     return {
       ...p,
+      rating_avg: ratings.get(p.id)?.rating_avg ?? null,
+      rating_count: ratings.get(p.id)?.rating_count ?? 0,
       links: productLinks,
       lowest: lowest
         ? {
@@ -58,7 +68,18 @@ export function getProduct(id: number | string): any | null {
   const links = db
     .prepare(`${LINKS_WITH_LATEST} WHERE l.product_id = ? AND l.is_active = 1`)
     .all(id);
-  return { ...(product as object), links };
+  const rating = db
+    .prepare(
+      'SELECT ROUND(AVG(rating), 1) AS rating_avg, COUNT(*) AS rating_count FROM reviews WHERE product_id = ?',
+    )
+    .get(id) as any;
+  return { ...(product as object), rating_avg: rating.rating_avg, rating_count: rating.rating_count, links };
+}
+
+export function listReviews(productId: number | string): any[] {
+  return db
+    .prepare('SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC, id DESC')
+    .all(productId);
 }
 
 export function getHistory(productId: number | string, days: number): any[] {
