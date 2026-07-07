@@ -1,18 +1,27 @@
 # String Price Tracker 🎻
 
-A local web app that tracks prices of strings for bowed instruments (violin, viola, cello, double bass) across multiple retailers and marketplaces, with price history charts, cross-retailer comparison, a watchlist, and price-drop alerts.
+A local web app that tracks prices of strings for bowed instruments (violin, viola, cello, double bass) across multiple retailers and marketplaces, with price history charts, cross-retailer comparison in SGD, a watchlist, and price-drop alerts.
 
 ## Data sources
 
-| Source | How | Auth |
-|---|---|---|
-| Fiddlershop | Shopify storefront JSON (`/products/<handle>.js`) | none |
-| Shar Music | Shopify storefront JSON | none |
-| Thomann | server-rendered microdata (`itemprop="price"`) | none |
-| Southwest Strings | WooCommerce Store API, JSON-LD fallback | none |
-| Reverb | official API — tracks the *lowest live listing* for a stored search query | free personal token |
+| Source | How | Currency | Auth |
+|---|---|---|---|
+| Fiddlershop | Shopify storefront JSON (`/products/<handle>.js`) | USD | none |
+| Shar Music | Shopify storefront JSON | USD | none |
+| Gramercy Music (SG) | Shopify storefront JSON | SGD | none |
+| Thomann | server-rendered microdata (`itemprop="price"`) | varies by IP | none |
+| Southwest Strings | WooCommerce Store API, JSON-LD fallback | USD | none |
+| Synwin Music (SG) | WooCommerce Store API, JSON-LD fallback | SGD | none |
+| LVL Music Academy (SG) | WooCommerce Store API, JSON-LD fallback | SGD | none |
+| Reverb | official API — tracks the *lowest live listing* for a stored search query | USD | free personal token |
 
-Prices are stored per source per fetch in their native currency (Thomann localizes currency by your IP). A paid Amazon provider (Rainforest/Keepa) can be added later as one module in `server/src/providers/` plus one registry line.
+Every snapshot stores the shop's native price **plus a normalized `price_sgd`** captured with
+that day's ECB reference rate (via the free [frankfurter.dev](https://frankfurter.dev) API, no
+key). Comparison, charts, targets, and alerts all work in SGD; overseas prices display as
+"S$… · US$…". WooCommerce *variable* products are tracked at the **variation** level because
+the parent product reports only the minimum of its price range (a lone E string, not the set).
+A paid Amazon provider (Rainforest/Keepa) can be added later as one module in
+`server/src/providers/` plus one registry line.
 
 ## Setup
 
@@ -32,7 +41,7 @@ npm run dev       # server on :3001, app on http://localhost:5173
 
 - **Watchlist**: you create a product ("Evah Pirazzi Gold violin set, 4/4 medium"), then attach the exact matching listing on each source via the built-in search. No fuzzy matching — you confirm each link once, and fetches stay precise forever.
 - **Fetching**: a daily cron (default 08:00, `FETCH_CRON` in `.env`) plus a catch-up run on server start if the last fetch is >20h old, plus a manual *Refresh prices* button. Requests are throttled to one per host per 1.5s with an identifying User-Agent.
-- **Alerts**: set a target price on a product; when any same-currency source hits it, an alert appears in the app (deduped until you acknowledge it).
+- **Alerts**: set a target price in SGD on a product; when any source's converted price hits it, an alert appears in the app (deduped until you acknowledge it).
 
 ## Commands
 

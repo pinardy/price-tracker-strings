@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, formatPrice, IS_STATIC, Product } from '../api';
+import { api, formatDualPrice, formatPrice, IS_STATIC, Product } from '../api';
 import { ProviderTag } from '../components/ProviderTag';
 
 const STALE_HOURS = 36;
@@ -53,7 +53,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                 {p.lowest ? (
                   <>
                     <span className="price-chip lowest">
-                      {formatPrice(p.lowest.price, p.lowest.currency)}
+                      {formatDualPrice(p.lowest.price_sgd, p.lowest.price, p.lowest.currency)}
                     </span>
                     <div className="muted">
                       at <a href={p.lowest.url} target="_blank" rel="noreferrer">{p.lowest.provider_id}</a>
@@ -69,7 +69,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                     <ProviderTag id={l.provider_id} />
                     {l.latest_price != null ? (
                       <span className="price-chip" title={l.latest_scraped_at ?? ''}>
-                        {formatPrice(l.latest_price, l.latest_currency!)}
+                        {formatDualPrice(l.latest_price_sgd, l.latest_price, l.latest_currency!)}
                         {l.latest_in_stock === 0 && <span className="error-text"> (out of stock)</span>}
                         {isStale(l.latest_scraped_at) && <span className="muted" title="price data is old"> ⏱</span>}
                       </span>
@@ -84,14 +84,12 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                   <span
                     className="price-chip"
                     style={
-                      p.lowest &&
-                      p.lowest.currency === p.target_currency &&
-                      p.lowest.price <= p.target_price
+                      p.lowest?.price_sgd != null && p.lowest.price_sgd <= p.target_price
                         ? { background: '#dcfce7', color: '#166534' }
                         : undefined
                     }
                   >
-                    ≤ {formatPrice(p.target_price, p.target_currency)}
+                    ≤ {formatPrice(p.target_price, 'SGD')}
                   </span>
                 ) : (
                   <span className="muted">—</span>

@@ -64,7 +64,7 @@ export function AddProduct() {
             <input placeholder="e.g. 4/4, medium gauge" value={variantDesc} onChange={(e) => setVariantDesc(e.target.value)} />
           </div>
           <div>
-            <label>Target price (USD, optional — alerts fire at or below this)</label>
+            <label>Target price (SGD, optional — alerts fire at or below this)</label>
             <input
               type="number"
               min="0"

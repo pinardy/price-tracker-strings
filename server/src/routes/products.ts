@@ -21,7 +21,7 @@ const createProductSchema = z.object({
   brand: z.string().optional(),
   variant_desc: z.string().optional(),
   target_price: z.number().positive().nullable().optional(),
-  target_currency: z.string().default('USD'),
+  target_currency: z.string().default('SGD'),
   links: z.array(linkPickSchema).default([]),
 });
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, formatPrice, IS_STATIC, Product, ProductLink, SearchResult, HistoryPoint } from '../api';
+import { api, formatDualPrice, formatPrice, IS_STATIC, Product, ProductLink, SearchResult, HistoryPoint } from '../api';
 import { PriceHistoryChart } from '../components/PriceHistoryChart';
 import { ProviderTag } from '../components/ProviderTag';
 import { SourceSearchPanel } from '../components/SourceSearchPanel';
@@ -101,12 +101,12 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
         {IS_STATIC ? (
           <p className="muted" style={{ margin: 0 }}>
             {product.target_price != null
-              ? <>Alerts fire when any {product.target_currency} price is at or below <strong>{formatPrice(product.target_price, product.target_currency)}</strong>.</>
+              ? <>Alerts fire when any price is at or below <strong>{formatPrice(product.target_price, 'SGD')}</strong>.</>
               : 'No target price set.'}
           </p>
         ) : (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="muted">Alert when any {product.target_currency} price is at or below</span>
+            <span className="muted">Alert when any price (converted to SGD) is at or below S$</span>
             <input
               type="number"
               min="0"
@@ -153,7 +153,7 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
                   {link.latest_price != null ? (
                     <>
                       <span className="price-chip">
-                        {formatPrice(link.latest_price, link.latest_currency!)}
+                        {formatDualPrice(link.latest_price_sgd, link.latest_price, link.latest_currency!)}
                       </span>
                       {link.latest_in_stock === 0 && <div className="error-text">out of stock</div>}
                       <div className="muted">{link.latest_scraped_at && new Date(link.latest_scraped_at + 'Z').toLocaleString()}</div>

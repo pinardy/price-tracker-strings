@@ -3,6 +3,7 @@ import { createPoliteFetch } from '../lib/politeFetch.js';
 import { getProvider, getProviders } from '../providers/registry.js';
 import type { FetchContext, LinkRef } from '../providers/types.js';
 import { evaluateAlerts } from './alerts.js';
+import { FxService } from './fx.js';
 
 export type FetchTrigger = 'startup' | 'cron' | 'manual';
 
@@ -51,8 +52,11 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
     const links = db.prepare(sql).all(...params) as LinkRow[];
 
     const ctx: FetchContext = { fetch: createPoliteFetch(), cache: new Map() };
+    const fx = new FxService(ctx.fetch);
+    await fx.refresh(['USD', 'EUR']);
+
     const insertSnapshot = db.prepare(
-      'INSERT INTO price_snapshots (link_id, run_id, price, currency, in_stock) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO price_snapshots (link_id, run_id, price, currency, in_stock, price_sgd) VALUES (?, ?, ?, ?, ?, ?)',
     );
 
     const byProvider = new Map<string, LinkRow[]>();
@@ -73,7 +77,14 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
           }
           try {
             const result = await provider.fetchPrice(link, ctx);
-            insertSnapshot.run(link.id, runId, result.price, result.currency, result.inStock == null ? null : Number(result.inStock));
+            insertSnapshot.run(
+              link.id,
+              runId,
+              result.price,
+              result.currency,
+              result.inStock == null ? null : Number(result.inStock),
+              fx.toSgd(result.price, result.currency),
+            );
             okCount++;
           } catch (err) {
             errors.push({ linkId: link.id, message: err instanceof Error ? err.message : String(err) });
@@ -86,11 +97,42 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
       `UPDATE fetch_runs SET finished_at = datetime('now'), ok_count = ?, error_count = ?, error_log = ? WHERE id = ?`,
     ).run(okCount, errors.length, errors.length ? JSON.stringify(errors) : null, runId);
 
+    await backfillSgd(fx);
     evaluateAlerts(runId);
     console.log(`[fetch] run ${runId} (${trigger}): ${okCount} ok, ${errors.length} errors`);
     return runId;
   } finally {
     running = false;
+  }
+}
+
+/**
+ * Self-healing conversion sweep: fills price_sgd on any snapshot still
+ * missing it — historical rows from before the SGD migration, rows whose
+ * rate fetch failed that day, and currencies we didn't anticipate.
+ */
+async function backfillSgd(fx: FxService): Promise<void> {
+  const pending = db
+    .prepare(
+      "SELECT DISTINCT currency FROM price_snapshots WHERE price_sgd IS NULL AND currency != 'SGD'",
+    )
+    .all() as { currency: string }[];
+  if (!pending.length) return;
+
+  const missing = pending.map((r) => r.currency).filter((c) => fx.rateToSgd(c) == null);
+  if (missing.length) await fx.refresh(missing);
+
+  const update = db.prepare(
+    'UPDATE price_snapshots SET price_sgd = price * ? WHERE price_sgd IS NULL AND currency = ?',
+  );
+  for (const { currency } of pending) {
+    const rate = fx.rateToSgd(currency);
+    if (rate == null) {
+      console.warn(`[fx] no rate for ${currency}, snapshots left unconverted`);
+      continue;
+    }
+    const { changes } = update.run(rate, currency);
+    if (changes) console.log(`[fx] backfilled ${changes} ${currency} snapshots to SGD`);
   }
 }
 

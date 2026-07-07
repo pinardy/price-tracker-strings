@@ -16,6 +16,7 @@ export interface ProductLink {
   is_active: number;
   latest_price: number | null;
   latest_currency: string | null;
+  latest_price_sgd: number | null;
   latest_in_stock: number | null;
   latest_scraped_at: string | null;
 }
@@ -31,7 +32,13 @@ export interface Product {
   is_active: number;
   created_at: string;
   links: ProductLink[];
-  lowest: { price: number; currency: string; provider_id: string; url: string } | null;
+  lowest: {
+    price: number;
+    currency: string;
+    price_sgd: number | null;
+    provider_id: string;
+    url: string;
+  } | null;
 }
 
 export interface SearchResult {
@@ -85,6 +92,7 @@ export interface HistoryPoint {
   provider_id: string;
   price: number;
   currency: string;
+  price_sgd: number | null;
   scraped_at: string;
 }
 
@@ -171,13 +179,23 @@ export const PROVIDER_COLORS: Record<string, string> = {
   shar: '#d97706',
   thomann: '#0891b2',
   swstrings: '#7c3aed',
+  gramercy: '#059669',
+  synwin: '#db2777',
+  lvl: '#4f46e5',
   reverb: '#dc2626',
 };
 
 export function formatPrice(price: number, currency: string): string {
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price);
+    // en-SG renders SGD as "S$" and USD as "US$" — unambiguous side by side.
+    return new Intl.NumberFormat('en-SG', { style: 'currency', currency }).format(price);
   } catch {
     return `${price.toFixed(2)} ${currency}`;
   }
+}
+
+/** SGD-first display: "S$108.98 · US$84.25" for overseas shops, plain "S$85.00" for SGD. */
+export function formatDualPrice(priceSgd: number | null, price: number, currency: string): string {
+  if (currency === 'SGD' || priceSgd == null) return formatPrice(price, currency);
+  return `${formatPrice(priceSgd, 'SGD')} · ${formatPrice(price, currency)}`;
 }

@@ -5,6 +5,9 @@ const LABELS: Record<string, string> = {
   shar: 'Shar',
   thomann: 'Thomann',
   swstrings: 'SW Strings',
+  gramercy: 'Gramercy',
+  synwin: 'Synwin',
+  lvl: 'LVL Music',
   reverb: 'Reverb',
 };
 

@@ -1,20 +1,24 @@
 import { db } from './connection.js';
 import { migrate } from './migrate.js';
 
-// Handles and variant ids verified live against both stores' Shopify JSON
-// on 2026-07-07. If a store renames a product the fetch run will log an
-// error for that link and it can be re-attached via the Add Product search.
+// Handles, variant ids, and WooCommerce variation ids verified live against
+// each store on 2026-07-07. If a store renames a product the fetch run will
+// log an error for that link and it can be re-attached via the search UI.
+interface SeedLink {
+  providerId: string;
+  externalId: string;
+  variantId?: string;
+  title: string;
+  /** WooCommerce shops need explicit URLs; Shopify links derive from STORE_URLS. */
+  url?: string;
+}
+
 const SEED: {
   name: string;
   instrument: 'violin' | 'viola' | 'cello' | 'bass';
   brand: string;
   variant_desc: string;
-  links: {
-    providerId: 'fiddlershop' | 'shar';
-    externalId: string;
-    variantId: string;
-    title: string;
-  }[];
+  links: SeedLink[];
 }[] = [
   {
     name: 'Thomastik Dominant Violin Set (135B)',
@@ -33,6 +37,24 @@ const SEED: {
         externalId: 'thomastik-dominant-violin-set-ball-e-4-4-medium',
         variantId: '45603396485351',
         title: 'Thomastik-Infeld Dominant Violin String Set - Steel E - 4/4 Size - Medium Gauge',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'thomastik-infeld-dominant-violin-set-medium-135b',
+        variantId: '41108842446900',
+        title: 'Thomastik-Infeld Dominant Violin Set Medium #135B — 4/4',
+      },
+      {
+        providerId: 'synwin',
+        externalId: '3475',
+        title: 'Dominant Violin Strings with Perlon E — String: Set',
+        url: 'https://www.synwin.com.sg/product/dominant-violin-strings-with-perlon-e/',
+      },
+      {
+        providerId: 'lvl',
+        externalId: '16834',
+        title: 'Thomastik Dominant Violin Strings — Size: 4/4, String: Set',
+        url: 'https://www.lvlmusicacademy.com/shop/violin-strings/thomastik-dominant-violin-strings/',
       },
     ],
   },
@@ -54,6 +76,12 @@ const SEED: {
         variantId: '45602239742183',
         title: 'Pirastro Evah Pirazzi Violin String Set - Silvery Steel E - 4/4 Size - Medium Gauge',
       },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-evah-pirazzi-violin-medium-set-419521',
+        variantId: '41109160919092',
+        title: 'Pirastro Evah Pirazzi Violin Medium (Set) — "E" - BALL SET',
+      },
     ],
   },
   {
@@ -73,6 +101,12 @@ const SEED: {
         externalId: 'pirazzi-gold-violin-string-set-silver-g-ball-e',
         variantId: '45603741663463',
         title: 'Pirastro Evah Pirazzi Gold Violin String Set - Silver G - 4/4 Size - Medium Gauge',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-evah-pirazzi-gold-violin-medium-set',
+        variantId: '41109137621044',
+        title: 'Pirastro Evah Pirazzi Gold Violin Medium (Set) — G SILVER + E BALL',
       },
     ],
   },
@@ -94,6 +128,12 @@ const SEED: {
         variantId: '45603486335207',
         title: 'Thomastik Infeld Dominant Viola String Set - 15"-16.5" Size - Medium Gauge',
       },
+      {
+        providerId: 'gramercy',
+        externalId: 'thomastik-infeld-dominant-viola-set-medium-141',
+        variantId: '41020017639476',
+        title: 'Thomastik-Infeld Dominant Viola Set Medium #141 — 4/4',
+      },
     ],
   },
   {
@@ -113,6 +153,12 @@ const SEED: {
         externalId: 'larsen-cello-a-string',
         variantId: '45604173578471',
         title: 'Larsen Cello A String — Medium',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'larsen-strings-original-cello-soft-medium-strong-loose',
+        variantId: '41101392511028',
+        title: 'Larsen Strings Original Cello (Loose) — "A" - MEDIUM',
       },
     ],
   },
@@ -141,37 +187,54 @@ const SEED: {
 const STORE_URLS: Record<string, string> = {
   fiddlershop: 'https://fiddlershop.com',
   shar: 'https://www.sharmusic.com',
+  gramercy: 'https://gramercy.com.sg',
 };
 
 migrate();
 
 const insertProduct = db.prepare(
-  `INSERT INTO products (name, instrument, brand, variant_desc) VALUES (?, ?, ?, ?)`,
+  `INSERT INTO products (name, instrument, brand, variant_desc, target_currency)
+   VALUES (?, ?, ?, ?, 'SGD')`,
 );
 const insertLink = db.prepare(
   `INSERT INTO product_links (product_id, provider_id, external_id, variant_id, url, title)
    VALUES (?, ?, ?, ?, ?, ?)`,
 );
-const productExists = db.prepare('SELECT 1 FROM products WHERE name = ?');
+const findProduct = db.prepare('SELECT id FROM products WHERE name = ?');
+const linkExists = db.prepare(
+  'SELECT 1 FROM product_links WHERE product_id = ? AND provider_id = ?',
+);
 
-let added = 0;
+function linkUrl(link: SeedLink): string {
+  return link.url ?? `${STORE_URLS[link.providerId]}/products/${link.externalId}`;
+}
+
+let addedProducts = 0;
+let addedLinks = 0;
 db.transaction(() => {
   for (const item of SEED) {
-    if (productExists.get(item.name)) continue;
-    const productId = insertProduct.run(item.name, item.instrument, item.brand, item.variant_desc)
-      .lastInsertRowid as number;
+    const existing = findProduct.get(item.name) as { id: number } | undefined;
+    const productId =
+      existing?.id ??
+      (insertProduct.run(item.name, item.instrument, item.brand, item.variant_desc)
+        .lastInsertRowid as number);
+    if (!existing) addedProducts++;
+
+    // Additive: attach any seed link whose provider isn't linked yet, so new
+    // sources reach previously seeded products too.
     for (const link of item.links) {
+      if (linkExists.get(productId, link.providerId)) continue;
       insertLink.run(
         productId,
         link.providerId,
         link.externalId,
-        link.variantId,
-        `${STORE_URLS[link.providerId]}/products/${link.externalId}`,
+        link.variantId ?? null,
+        linkUrl(link),
         link.title,
       );
+      addedLinks++;
     }
-    added++;
   }
 })();
 
-console.log(`[seed] added ${added} products (${SEED.length - added} already present)`);
+console.log(`[seed] added ${addedProducts} products, ${addedLinks} links`);

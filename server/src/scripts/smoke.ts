@@ -35,6 +35,28 @@ const KNOWN_LINKS: Record<string, LinkRef> = {
     // resolved during the smoke run from search results
     url: '',
   },
+  gramercy: {
+    providerId: 'gramercy',
+    externalId: null,
+    variantId: null,
+    query: null,
+    // resolved during the smoke run from search results
+    url: '',
+  },
+  synwin: {
+    providerId: 'synwin',
+    externalId: '3475', // Dominant violin set variation, verified 2026-07-07
+    variantId: null,
+    query: null,
+    url: 'https://www.synwin.com.sg/product/dominant-violin-strings-with-perlon-e/',
+  },
+  lvl: {
+    providerId: 'lvl',
+    externalId: '16834', // Dominant 4/4 set variation, verified 2026-07-07
+    variantId: null,
+    query: null,
+    url: 'https://www.lvlmusicacademy.com/shop/violin-strings/thomastik-dominant-violin-strings/',
+  },
   reverb: {
     providerId: 'reverb',
     externalId: null,
@@ -56,10 +78,10 @@ for (const provider of getProviders()) {
     }
 
     let link = KNOWN_LINKS[provider.id];
-    if (provider.id === 'swstrings') {
+    if (!link.externalId && !link.url) {
       const first = results.find((r) => r.url);
       if (!first) throw new Error('no search result to fetch');
-      link = { ...link, externalId: first.externalId, url: first.url };
+      link = { ...link, externalId: first.externalId, variantId: first.variantId ?? null, url: first.url };
     }
     const price = await provider.fetchPrice(link, ctx);
     console.log(`fetchPrice: ${price.price} ${price.currency} inStock=${price.inStock} (${price.title ?? 'no title'})`);
