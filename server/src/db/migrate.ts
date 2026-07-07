@@ -23,6 +23,14 @@ const MIGRATIONS: (() => void)[] = [
       UPDATE price_snapshots SET price_sgd = price WHERE currency = 'SGD';
       UPDATE products SET target_currency = 'SGD';
     `),
+  // v3: below-range alerts. `kind` distinguishes a manual target-price alert
+  // from an automatic "below the usual range" one; `baseline` records the
+  // typical (median) low that the band was built around, for display.
+  () =>
+    db.exec(`
+      ALTER TABLE alerts ADD COLUMN kind TEXT NOT NULL DEFAULT 'target';
+      ALTER TABLE alerts ADD COLUMN baseline REAL;
+    `),
 ];
 
 export function migrate(): void {

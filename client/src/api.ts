@@ -82,7 +82,12 @@ export interface Alert {
   link_url: string | null;
   price: number;
   currency: string;
+  /** For 'target' alerts: the user's target. For 'below_range': the lower bound crossed. */
   target_price: number;
+  /** 'target' = manual target hit; 'below_range' = fell below its usual price range. */
+  kind: 'target' | 'below_range';
+  /** Typical (median) low the range was built around; only set for 'below_range'. */
+  baseline: number | null;
   acknowledged: number;
   created_at: string;
 }

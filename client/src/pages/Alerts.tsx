@@ -39,7 +39,7 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
           <button className="small" onClick={ackAll}>Acknowledge all</button>
         )}
       </div>
-      {!alerts.length && <p className="muted">No alerts. Set a target price on a product to get one when a source drops below it.</p>}
+      {!alerts.length && <p className="muted">No alerts. Set a target price on a product to get one when a source drops below it — or leave it, and you'll be alerted automatically when a price falls below its usual range.</p>}
       <table className="responsive-table">
         <tbody>
           {alerts.map((alert) => (
@@ -48,10 +48,17 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
                 <Link to={`/products/${alert.product_id}`}><strong>{alert.product_name}</strong></Link>
                 <div className="muted">{new Date(alert.created_at + 'Z').toLocaleString()}</div>
               </td>
-              <td data-label="Price vs target">
+              <td data-label="Price">
                 {alert.provider_id && <ProviderTag id={alert.provider_id} />}
                 <span className="price-chip lowest">{formatPrice(alert.price, alert.currency)}</span>
-                <span className="muted"> ≤ target {formatPrice(alert.target_price, alert.currency)}</span>
+                {alert.kind === 'below_range' ? (
+                  <span className="muted" title="Fell below the lower bound of its usual price range (Q1 − 1.5×IQR)">
+                    {' '}below usual range
+                    {alert.baseline != null && <> · typically ~{formatPrice(alert.baseline, alert.currency)}</>}
+                  </span>
+                ) : (
+                  <span className="muted"> ≤ target {formatPrice(alert.target_price, alert.currency)}</span>
+                )}
               </td>
               <td>
                 {alert.link_url && (
