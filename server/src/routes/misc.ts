@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { run } from '../db/connection.js';
+import { ah } from '../lib/asyncHandler.js';
+import { background } from '../lib/background.js';
 import { createPoliteFetch } from '../lib/politeFetch.js';
 import { getProviders } from '../providers/registry.js';
 import type { FetchContext } from '../providers/types.js';
@@ -12,9 +14,12 @@ miscRouter.get('/providers', (_req, res) => {
   res.json(getEnabledProviders());
 });
 
-miscRouter.get('/search', async (req, res) => {
+miscRouter.get('/search', ah(async (req, res) => {
   const query = String(req.query.q ?? '').trim();
-  if (!query) return res.status(400).json({ error: 'q is required' });
+  if (!query) {
+    res.status(400).json({ error: 'q is required' });
+    return;
+  }
   const providerFilter = req.query.providers
     ? String(req.query.providers).split(',')
     : null;
@@ -31,35 +36,45 @@ miscRouter.get('/search', async (req, res) => {
         : { providerId: p.id, label: p.label, kind: p.kind, error: String(outcome.reason?.message ?? outcome.reason) };
     }),
   );
-});
+}));
 
-miscRouter.post('/fetch', (_req, res) => {
-  if (isFetchRunning()) return res.status(202).json({ status: 'already-running' });
-  void runFetch('manual');
+miscRouter.post('/fetch', ah(async (_req, res) => {
+  if (await isFetchRunning()) {
+    res.status(202).json({ status: 'already-running' });
+    return;
+  }
+  background(runFetch('manual'));
   res.status(202).json({ status: 'started' });
-});
+}));
 
-miscRouter.get('/fetch/status', (_req, res) => {
-  res.json({ running: isFetchRunning(), lastRun: getLastRun() });
-});
+miscRouter.get('/fetch/status', ah(async (_req, res) => {
+  const [running, lastRun] = await Promise.all([isFetchRunning(), getLastRun()]);
+  res.json({ running, lastRun });
+}));
 
-miscRouter.delete('/links/:id', (req, res) => {
-  const result = db.prepare('UPDATE product_links SET is_active = 0 WHERE id = ?').run(req.params.id);
-  if (!result.changes) return res.status(404).json({ error: 'not found' });
+miscRouter.delete('/links/:id', ah(async (req, res) => {
+  const { changes } = await run('UPDATE product_links SET is_active = 0 WHERE id = ?', [req.params.id]);
+  if (!changes) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
   res.status(204).end();
-});
+}));
 
-miscRouter.get('/alerts', (req, res) => {
-  res.json(listAlerts(req.query.unacknowledged === '1'));
-});
+miscRouter.get('/alerts', ah(async (req, res) => {
+  res.json(await listAlerts(req.query.unacknowledged === '1'));
+}));
 
-miscRouter.post('/alerts/:id/ack', (req, res) => {
-  const result = db.prepare('UPDATE alerts SET acknowledged = 1 WHERE id = ?').run(req.params.id);
-  if (!result.changes) return res.status(404).json({ error: 'not found' });
+miscRouter.post('/alerts/:id/ack', ah(async (req, res) => {
+  const { changes } = await run('UPDATE alerts SET acknowledged = 1 WHERE id = ?', [req.params.id]);
+  if (!changes) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
   res.status(204).end();
-});
+}));
 
-miscRouter.post('/alerts/ack-all', (_req, res) => {
-  db.prepare('UPDATE alerts SET acknowledged = 1 WHERE acknowledged = 0').run();
+miscRouter.post('/alerts/ack-all', ah(async (_req, res) => {
+  await run('UPDATE alerts SET acknowledged = 1 WHERE acknowledged = 0');
   res.status(204).end();
-});
+}));

@@ -1,4 +1,4 @@
-import { db } from '../db/connection.js';
+import { allRows, firstRow, run } from '../db/connection.js';
 import { createPoliteFetch } from '../lib/politeFetch.js';
 import { getProvider, getProviders } from '../providers/registry.js';
 import type { FetchContext, LinkRef } from '../providers/types.js';
@@ -12,30 +12,33 @@ interface LinkRow extends LinkRef {
   providerId: string;
 }
 
-let running = false;
+/** A run row without finished_at newer than this counts as "running". */
+const LOCK_WINDOW = "-10 minutes";
+const RUNNING_SQL = `SELECT 1 FROM fetch_runs WHERE finished_at IS NULL AND started_at > datetime('now', '${LOCK_WINDOW}')`;
 
-export function isFetchRunning(): boolean {
-  return running;
+/** Cross-instance running check (serverless instances share no memory). */
+export async function isFetchRunning(): Promise<boolean> {
+  return Boolean(await firstRow(RUNNING_SQL));
 }
 
-export function getLastRun(): unknown {
-  return db
-    .prepare('SELECT * FROM fetch_runs ORDER BY id DESC LIMIT 1')
-    .get();
+export function getLastRun(): Promise<unknown> {
+  return firstRow('SELECT * FROM fetch_runs ORDER BY id DESC LIMIT 1');
 }
 
 /**
  * Fetches current prices for every active link of every active product.
  * Providers run in parallel; politeFetch keeps each host serial and spaced.
- * Individual link failures are logged, never abort the run.
+ * Individual link failures are logged, never abort the run. Concurrency is
+ * guarded by a DB lock: the run row insert only succeeds when no other
+ * unfinished run exists (self-healing after ${LOCK_WINDOW}).
  */
 export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): Promise<number | null> {
-  if (running) return null;
-  running = true;
-
-  const runId = db
-    .prepare('INSERT INTO fetch_runs (trigger) VALUES (?)')
-    .run(trigger).lastInsertRowid as number;
+  const lock = await run(
+    `INSERT INTO fetch_runs (trigger) SELECT ? WHERE NOT EXISTS (${RUNNING_SQL})`,
+    [trigger],
+  );
+  if (!lock.changes) return null; // another run is in progress
+  const runId = lock.lastId;
 
   try {
     let sql = `
@@ -49,15 +52,11 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
       sql += ` AND l.id IN (${onlyLinkIds.map(() => '?').join(',')})`;
       params.push(...onlyLinkIds);
     }
-    const links = db.prepare(sql).all(...params) as LinkRow[];
+    const links = (await allRows(sql, params as any)) as LinkRow[];
 
     const ctx: FetchContext = { fetch: createPoliteFetch(), cache: new Map() };
     const fx = new FxService(ctx.fetch);
     await fx.refresh(['USD', 'EUR']);
-
-    const insertSnapshot = db.prepare(
-      'INSERT INTO price_snapshots (link_id, run_id, price, currency, in_stock, price_sgd) VALUES (?, ?, ?, ?, ?, ?)',
-    );
 
     const byProvider = new Map<string, LinkRow[]>();
     for (const link of links) {
@@ -77,13 +76,16 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
           }
           try {
             const result = await provider.fetchPrice(link, ctx);
-            insertSnapshot.run(
-              link.id,
-              runId,
-              result.price,
-              result.currency,
-              result.inStock == null ? null : Number(result.inStock),
-              fx.toSgd(result.price, result.currency),
+            await run(
+              'INSERT INTO price_snapshots (link_id, run_id, price, currency, in_stock, price_sgd) VALUES (?, ?, ?, ?, ?, ?)',
+              [
+                link.id,
+                runId,
+                result.price,
+                result.currency,
+                result.inStock == null ? null : Number(result.inStock),
+                fx.toSgd(result.price, result.currency),
+              ],
             );
             okCount++;
           } catch (err) {
@@ -93,16 +95,22 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
       }),
     );
 
-    db.prepare(
+    await run(
       `UPDATE fetch_runs SET finished_at = datetime('now'), ok_count = ?, error_count = ?, error_log = ? WHERE id = ?`,
-    ).run(okCount, errors.length, errors.length ? JSON.stringify(errors) : null, runId);
+      [okCount, errors.length, errors.length ? JSON.stringify(errors) : null, runId],
+    );
 
     await backfillSgd(fx);
-    evaluateAlerts(runId);
+    await evaluateAlerts(runId);
     console.log(`[fetch] run ${runId} (${trigger}): ${okCount} ok, ${errors.length} errors`);
     return runId;
-  } finally {
-    running = false;
+  } catch (err) {
+    // Release the lock with the failure recorded rather than waiting out the window.
+    await run(
+      `UPDATE fetch_runs SET finished_at = datetime('now'), error_count = 1, error_log = ? WHERE id = ? AND finished_at IS NULL`,
+      [JSON.stringify([{ linkId: 0, message: err instanceof Error ? err.message : String(err) }]), runId],
+    ).catch(() => {});
+    throw err;
   }
 }
 
@@ -112,26 +120,24 @@ export async function runFetch(trigger: FetchTrigger, onlyLinkIds?: number[]): P
  * rate fetch failed that day, and currencies we didn't anticipate.
  */
 async function backfillSgd(fx: FxService): Promise<void> {
-  const pending = db
-    .prepare(
-      "SELECT DISTINCT currency FROM price_snapshots WHERE price_sgd IS NULL AND currency != 'SGD'",
-    )
-    .all() as { currency: string }[];
+  const pending = await allRows<{ currency: string }>(
+    "SELECT DISTINCT currency FROM price_snapshots WHERE price_sgd IS NULL AND currency != 'SGD'",
+  );
   if (!pending.length) return;
 
   const missing = pending.map((r) => r.currency).filter((c) => fx.rateToSgd(c) == null);
   if (missing.length) await fx.refresh(missing);
 
-  const update = db.prepare(
-    'UPDATE price_snapshots SET price_sgd = price * ? WHERE price_sgd IS NULL AND currency = ?',
-  );
   for (const { currency } of pending) {
     const rate = fx.rateToSgd(currency);
     if (rate == null) {
       console.warn(`[fx] no rate for ${currency}, snapshots left unconverted`);
       continue;
     }
-    const { changes } = update.run(rate, currency);
+    const { changes } = await run(
+      'UPDATE price_snapshots SET price_sgd = price * ? WHERE price_sgd IS NULL AND currency = ?',
+      [rate, currency],
+    );
     if (changes) console.log(`[fx] backfilled ${changes} ${currency} snapshots to SGD`);
   }
 }

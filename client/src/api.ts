@@ -116,12 +116,21 @@ export interface HistoryPoint {
 /** True in the read-only static build (GitHub Pages) — data comes from exported JSON. */
 export const IS_STATIC = import.meta.env.VITE_STATIC === '1';
 
+const PW_KEY = 'appPassword';
+
+export function setAppPassword(password: string): void {
+  localStorage.setItem(PW_KEY, password);
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const password = localStorage.getItem(PW_KEY);
+  if (password) headers['X-App-Password'] = password;
+  const response = await fetch(url, { headers, ...init });
   if (!response.ok) {
+    if (response.status === 401 && !IS_STATIC) {
+      window.dispatchEvent(new Event('app:unauthorized'));
+    }
     const body = await response.text().catch(() => '');
     throw new Error(`${response.status}: ${body || response.statusText}`);
   }

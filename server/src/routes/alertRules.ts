@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { db } from '../db/connection.js';
+import { allRows, firstRow, run } from '../db/connection.js';
+import { ah } from '../lib/asyncHandler.js';
 
 export const alertRulesRouter = Router();
 
@@ -27,35 +28,52 @@ const LIST_SQL = `
   JOIN products p ON p.id = r.product_id
   WHERE p.is_active = 1`;
 
-alertRulesRouter.get('/', (_req, res) => {
-  res.json(db.prepare(`${LIST_SQL} ORDER BY r.created_at DESC, r.id DESC`).all());
-});
+alertRulesRouter.get('/', ah(async (_req, res) => {
+  res.json(await allRows(`${LIST_SQL} ORDER BY r.created_at DESC, r.id DESC`));
+}));
 
-alertRulesRouter.post('/', (req, res) => {
+alertRulesRouter.post('/', ah(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const product = db
-    .prepare('SELECT 1 FROM products WHERE id = ? AND is_active = 1')
-    .get(parsed.data.product_id);
-  if (!product) return res.status(404).json({ error: 'product not found' });
-  const result = db
-    .prepare('INSERT INTO alert_rules (product_id, threshold_sgd) VALUES (?, ?)')
-    .run(parsed.data.product_id, parsed.data.threshold_sgd);
-  res.status(201).json({ id: result.lastInsertRowid });
-});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const product = await firstRow('SELECT 1 FROM products WHERE id = ? AND is_active = 1', [
+    parsed.data.product_id,
+  ]);
+  if (!product) {
+    res.status(404).json({ error: 'product not found' });
+    return;
+  }
+  const { lastId } = await run('INSERT INTO alert_rules (product_id, threshold_sgd) VALUES (?, ?)', [
+    parsed.data.product_id,
+    parsed.data.threshold_sgd,
+  ]);
+  res.status(201).json({ id: lastId });
+}));
 
-alertRulesRouter.patch('/:id', (req, res) => {
+alertRulesRouter.patch('/:id', ah(async (req, res) => {
   const parsed = patchSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const result = db
-    .prepare('UPDATE alert_rules SET threshold_sgd = ? WHERE id = ?')
-    .run(parsed.data.threshold_sgd, req.params.id);
-  if (!result.changes) return res.status(404).json({ error: 'not found' });
-  res.json(db.prepare(`${LIST_SQL} AND r.id = ?`).get(req.params.id));
-});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const { changes } = await run('UPDATE alert_rules SET threshold_sgd = ? WHERE id = ?', [
+    parsed.data.threshold_sgd,
+    req.params.id,
+  ]);
+  if (!changes) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  res.json(await firstRow(`${LIST_SQL} AND r.id = ?`, [req.params.id]));
+}));
 
-alertRulesRouter.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM alert_rules WHERE id = ?').run(req.params.id);
-  if (!result.changes) return res.status(404).json({ error: 'not found' });
+alertRulesRouter.delete('/:id', ah(async (req, res) => {
+  const { changes } = await run('DELETE FROM alert_rules WHERE id = ?', [req.params.id]);
+  if (!changes) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
   res.status(204).end();
-});
+}));

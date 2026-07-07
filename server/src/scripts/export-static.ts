@@ -10,7 +10,7 @@ import { getHistory, getProduct, listAlerts, listProducts } from '../services/qu
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const outDir = process.env.OUT_DIR ?? path.join(repoRoot, 'client', 'public', 'data');
 
-migrate();
+await migrate();
 
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(outDir, 'products'), { recursive: true });
@@ -19,14 +19,14 @@ fs.mkdirSync(path.join(outDir, 'history'), { recursive: true });
 const write = (relPath: string, data: unknown) =>
   fs.writeFileSync(path.join(outDir, relPath), JSON.stringify(data));
 
-const products = listProducts();
+const products = await listProducts();
 write('products.json', products);
 for (const product of products) {
-  write(`products/${product.id}.json`, getProduct(product.id));
-  write(`history/${product.id}.json`, getHistory(product.id, 365));
+  write(`products/${product.id}.json`, await getProduct(product.id));
+  write(`history/${product.id}.json`, await getHistory(product.id, 365));
 }
-write('alerts.json', listAlerts(false));
-write('status.json', { running: false, lastRun: getLastRun() });
+write('alerts.json', await listAlerts(false));
+write('status.json', { running: false, lastRun: await getLastRun() });
 write('providers.json', getEnabledProviders());
 
 console.log(`[export-static] wrote ${products.length} products to ${outDir}`);

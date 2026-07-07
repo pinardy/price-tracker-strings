@@ -1,4 +1,4 @@
-import { db } from '../db/connection.js';
+import { allRows, run } from '../db/connection.js';
 import type { PoliteFetch } from '../lib/politeFetch.js';
 
 const FX_API = 'https://api.frankfurter.dev/v1/latest';
@@ -32,33 +32,42 @@ export async function fetchSgdRates(
 
 /**
  * Rate cache backed by the fx_rates table, so the last known rates survive
- * an API outage — a stale conversion beats no conversion.
+ * an API outage — a stale conversion beats no conversion. Stored rates are
+ * loaded lazily on the first refresh(); rateToSgd/toSgd stay synchronous
+ * because runFetch always awaits refresh() first.
  */
 export class FxService {
   private rates = new Map<string, number>();
+  private loaded = false;
 
-  constructor(private fetch: PoliteFetch) {
-    const stored = db.prepare('SELECT currency, rate_to_sgd FROM fx_rates').all() as {
-      currency: string;
-      rate_to_sgd: number;
-    }[];
-    for (const row of stored) this.rates.set(row.currency, row.rate_to_sgd);
+  constructor(private fetch: PoliteFetch) {}
+
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    this.loaded = true;
+    const stored = await allRows<{ currency: string; rate_to_sgd: number }>(
+      'SELECT currency, rate_to_sgd FROM fx_rates',
+    );
+    for (const row of stored) {
+      if (!this.rates.has(row.currency)) this.rates.set(row.currency, row.rate_to_sgd);
+    }
   }
 
   /** Fetches fresh rates and upserts them; on failure keeps stored rates. Never throws. */
   async refresh(currencies: string[]): Promise<void> {
+    await this.ensureLoaded();
     const fresh = await fetchSgdRates(this.fetch, currencies);
     if (!fresh) {
       console.warn('[fx] rate fetch failed, using stored rates');
       return;
     }
-    const upsert = db.prepare(
-      `INSERT INTO fx_rates (currency, rate_to_sgd, fetched_at) VALUES (?, ?, datetime('now'))
-       ON CONFLICT(currency) DO UPDATE SET rate_to_sgd = excluded.rate_to_sgd, fetched_at = excluded.fetched_at`,
-    );
     for (const [currency, rate] of Object.entries(fresh)) {
       this.rates.set(currency, rate);
-      upsert.run(currency, rate);
+      await run(
+        `INSERT INTO fx_rates (currency, rate_to_sgd, fetched_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(currency) DO UPDATE SET rate_to_sgd = excluded.rate_to_sgd, fetched_at = excluded.fetched_at`,
+        [currency, rate],
+      );
     }
   }
 

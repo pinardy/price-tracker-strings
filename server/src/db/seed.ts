@@ -1,4 +1,4 @@
-import { db } from './connection.js';
+import { db, firstRow, run } from './connection.js';
 import { migrate } from './migrate.js';
 
 // Handles, variant ids, and WooCommerce variation ids verified live against
@@ -190,51 +190,44 @@ const STORE_URLS: Record<string, string> = {
   gramercy: 'https://gramercy.com.sg',
 };
 
-migrate();
-
-const insertProduct = db.prepare(
-  `INSERT INTO products (name, instrument, brand, variant_desc, target_currency)
-   VALUES (?, ?, ?, ?, 'SGD')`,
-);
-const insertLink = db.prepare(
-  `INSERT INTO product_links (product_id, provider_id, external_id, variant_id, url, title)
-   VALUES (?, ?, ?, ?, ?, ?)`,
-);
-const findProduct = db.prepare('SELECT id FROM products WHERE name = ?');
-const linkExists = db.prepare(
-  'SELECT 1 FROM product_links WHERE product_id = ? AND provider_id = ?',
-);
+await migrate();
 
 function linkUrl(link: SeedLink): string {
   return link.url ?? `${STORE_URLS[link.providerId]}/products/${link.externalId}`;
 }
 
+// Idempotent additive seed: sequential awaits, re-running heals partial state.
 let addedProducts = 0;
 let addedLinks = 0;
-db.transaction(() => {
-  for (const item of SEED) {
-    const existing = findProduct.get(item.name) as { id: number } | undefined;
-    const productId =
-      existing?.id ??
-      (insertProduct.run(item.name, item.instrument, item.brand, item.variant_desc)
-        .lastInsertRowid as number);
-    if (!existing) addedProducts++;
+for (const item of SEED) {
+  const existing = await firstRow<{ id: number }>('SELECT id FROM products WHERE name = ?', [item.name]);
+  const productId =
+    existing?.id ??
+    (
+      await run(
+        `INSERT INTO products (name, instrument, brand, variant_desc, target_currency)
+         VALUES (?, ?, ?, ?, 'SGD')`,
+        [item.name, item.instrument, item.brand, item.variant_desc],
+      )
+    ).lastId;
+  if (!existing) addedProducts++;
 
-    // Additive: attach any seed link whose provider isn't linked yet, so new
-    // sources reach previously seeded products too.
-    for (const link of item.links) {
-      if (linkExists.get(productId, link.providerId)) continue;
-      insertLink.run(
-        productId,
-        link.providerId,
-        link.externalId,
-        link.variantId ?? null,
-        linkUrl(link),
-        link.title,
-      );
-      addedLinks++;
-    }
+  // Attach any seed link whose provider isn't linked yet, so new sources
+  // reach previously seeded products too.
+  for (const link of item.links) {
+    const linked = await firstRow('SELECT 1 FROM product_links WHERE product_id = ? AND provider_id = ?', [
+      productId,
+      link.providerId,
+    ]);
+    if (linked) continue;
+    await run(
+      `INSERT INTO product_links (product_id, provider_id, external_id, variant_id, url, title)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [productId, link.providerId, link.externalId, link.variantId ?? null, linkUrl(link), link.title],
+    );
+    addedLinks++;
   }
-})();
+}
 
 console.log(`[seed] added ${addedProducts} products, ${addedLinks} links`);
+db.close();
