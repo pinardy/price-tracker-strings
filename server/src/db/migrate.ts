@@ -23,6 +23,22 @@ const MIGRATIONS: (() => void)[] = [
       UPDATE price_snapshots SET price_sgd = price WHERE currency = 'SGD';
       UPDATE products SET target_currency = 'SGD';
     `),
+  // v3 (this branch): alert rules as first-class CRUD records, many per
+  // product. Existing single targets migrate into rules; products.target_price
+  // stays as an unused column.
+  () =>
+    db.exec(`
+      CREATE TABLE alert_rules (
+        id            INTEGER PRIMARY KEY,
+        product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        threshold_sgd REAL NOT NULL CHECK (threshold_sgd > 0),
+        created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      ALTER TABLE alerts ADD COLUMN rule_id INTEGER REFERENCES alert_rules(id) ON DELETE SET NULL;
+      INSERT INTO alert_rules (product_id, threshold_sgd)
+        SELECT id, target_price FROM products WHERE target_price IS NOT NULL;
+      UPDATE products SET target_price = NULL;
+    `),
 ];
 
 export function migrate(): void {

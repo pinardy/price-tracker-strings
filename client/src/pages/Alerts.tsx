@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, api, formatPrice, IS_STATIC } from '../api';
+import { AlertRulesManager } from '../components/AlertRulesManager';
 import { ProviderTag } from '../components/ProviderTag';
 
 export function Alerts({ onChanged }: { onChanged: () => void }) {
@@ -28,9 +29,20 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
   if (!alerts) return <div className="card muted">Loading…</div>;
 
   return (
-    <div className="card">
+    <>
+      {!IS_STATIC && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Saved alerts</h2>
+          <p className="muted">
+            Each alert watches one product and fires when any shop's SGD-converted price is at
+            or below the threshold.
+          </p>
+          <AlertRulesManager onChanged={onChanged} />
+        </div>
+      )}
+      <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <h2 style={{ margin: 0, flex: 1 }}>Price-drop alerts</h2>
+        <h2 style={{ margin: 0, flex: 1 }}>Triggered alerts</h2>
         <label className="muted" style={{ marginRight: 12 }}>
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />{' '}
           show acknowledged
@@ -39,7 +51,7 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
           <button className="small" onClick={ackAll}>Acknowledge all</button>
         )}
       </div>
-      {!alerts.length && <p className="muted">No alerts. Set a target price on a product to get one when a source drops below it.</p>}
+      {!alerts.length && <p className="muted">Nothing triggered yet. Save an alert above to get notified when a shop drops below your price.</p>}
       <table className="responsive-table">
         <tbody>
           {alerts.map((alert) => (
@@ -67,6 +79,7 @@ export function Alerts({ onChanged }: { onChanged: () => void }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }

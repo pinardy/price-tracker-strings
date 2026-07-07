@@ -32,6 +32,7 @@ export interface Product {
   is_active: number;
   created_at: string;
   links: ProductLink[];
+  rules: ProductRule[];
   lowest: {
     price: number;
     currency: string;
@@ -72,6 +73,22 @@ export interface FetchStatus {
     error_count: number;
     error_log: string | null;
   } | null;
+}
+
+export interface AlertRule {
+  id: number;
+  product_id: number;
+  product_name: string;
+  instrument: string;
+  threshold_sgd: number;
+  created_at: string;
+  lowest_price_sgd: number | null;
+}
+
+export interface ProductRule {
+  id: number;
+  product_id: number;
+  threshold_sgd: number;
 }
 
 export interface Alert {
@@ -168,6 +185,24 @@ export const api = {
     const rows = await staticData<Alert[]>('alerts.json');
     return onlyOpen ? rows.filter((a) => !a.acknowledged) : rows;
   },
+  alertRules: () =>
+    IS_STATIC ? staticData<AlertRule[]>('alert-rules.json') : request<AlertRule[]>('/api/alert-rules'),
+  createAlertRule: (productId: number, thresholdSgd: number) =>
+    IS_STATIC
+      ? readOnly()
+      : request<{ id: number }>('/api/alert-rules', {
+          method: 'POST',
+          body: JSON.stringify({ product_id: productId, threshold_sgd: thresholdSgd }),
+        }),
+  updateAlertRule: (id: number, thresholdSgd: number) =>
+    IS_STATIC
+      ? readOnly()
+      : request<AlertRule>(`/api/alert-rules/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ threshold_sgd: thresholdSgd }),
+        }),
+  deleteAlertRule: (id: number) =>
+    IS_STATIC ? readOnly() : request<void>(`/api/alert-rules/${id}`, { method: 'DELETE' }),
   ackAlert: (id: number) =>
     IS_STATIC ? readOnly() : request<void>(`/api/alerts/${id}/ack`, { method: 'POST' }),
   ackAllAlerts: () =>

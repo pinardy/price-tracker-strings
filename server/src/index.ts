@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { migrate } from './db/migrate.js';
 import { productsRouter } from './routes/products.js';
+import { alertRulesRouter } from './routes/alertRules.js';
 import { miscRouter } from './routes/misc.js';
 import { startScheduler } from './services/scheduler.js';
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/products', productsRouter);
+app.use('/api/alert-rules', alertRulesRouter);
 app.use('/api', miscRouter);
 
 const port = Number(process.env.PORT) || 3001;

@@ -23,9 +23,12 @@ export function AddProduct() {
         instrument,
         brand: brand.trim() || undefined,
         variant_desc: variantDesc.trim() || undefined,
-        target_price: targetPrice ? parseFloat(targetPrice) : undefined,
         links: picks,
       });
+      const threshold = parseFloat(targetPrice);
+      if (Number.isFinite(threshold) && threshold > 0) {
+        await api.createAlertRule(id, threshold);
+      }
       navigate(`/products/${id}`);
     } catch (err) {
       setError(String(err));
@@ -64,7 +67,7 @@ export function AddProduct() {
             <input placeholder="e.g. 4/4, medium gauge" value={variantDesc} onChange={(e) => setVariantDesc(e.target.value)} />
           </div>
           <div>
-            <label>Target price (SGD, optional — alerts fire at or below this)</label>
+            <label>Alert threshold (SGD, optional — creates a saved alert)</label>
             <input
               type="number"
               min="0"

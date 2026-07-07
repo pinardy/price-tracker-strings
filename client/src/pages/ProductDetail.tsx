@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, formatDualPrice, formatPrice, IS_STATIC, Product, ProductLink, SearchResult, HistoryPoint } from '../api';
+import { api, formatDualPrice, IS_STATIC, Product, ProductLink, SearchResult, HistoryPoint } from '../api';
+import { AlertRulesManager } from '../components/AlertRulesManager';
 import { PriceHistoryChart } from '../components/PriceHistoryChart';
 import { ProviderTag } from '../components/ProviderTag';
 import { SourceSearchPanel } from '../components/SourceSearchPanel';
@@ -15,15 +16,11 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
   const [days, setDays] = useState(90);
   const [showLinkSearch, setShowLinkSearch] = useState(false);
   const [pendingPicks, setPendingPicks] = useState<SearchResult[]>([]);
-  const [targetInput, setTargetInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
-    api.product(id).then((p) => {
-      setProduct(p);
-      setTargetInput(p.target_price != null ? String(p.target_price) : '');
-    }).catch((err) => setError(String(err)));
+    api.product(id).then(setProduct).catch((err) => setError(String(err)));
     api.history(id, days).then(setHistory).catch(() => {});
   }, [id, days]);
 
@@ -36,12 +33,6 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
 
   if (error) return <div className="card error-text">{error}</div>;
   if (!product) return <div className="card muted">Loading…</div>;
-
-  const saveTarget = async () => {
-    const value = targetInput.trim() ? parseFloat(targetInput) : null;
-    await api.patchProduct(product.id, { target_price: value });
-    load();
-  };
 
   const removeProduct = async () => {
     if (!window.confirm(`Stop tracking "${product.name}"? Price history is kept.`)) return;
@@ -97,32 +88,11 @@ export function ProductDetail({ dataVersion }: { dataVersion: number }) {
       </div>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Price-drop alert</h3>
+        <h3 style={{ marginTop: 0 }}>Price-drop alerts</h3>
         {IS_STATIC ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {product.target_price != null
-              ? <>Alerts fire when any price is at or below <strong>{formatPrice(product.target_price, 'SGD')}</strong>.</>
-              : 'No target price set.'}
-          </p>
+          <p className="muted" style={{ margin: 0 }}>Alerts are managed in the local app.</p>
         ) : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="muted">Alert when any price (converted to SGD) is at or below S$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              style={{ width: 120 }}
-              placeholder="no target"
-              value={targetInput}
-              onChange={(e) => setTargetInput(e.target.value)}
-            />
-            <button className="primary small" onClick={saveTarget}>Save</button>
-            {product.target_price != null && (
-              <button className="small" onClick={() => { setTargetInput(''); void api.patchProduct(product.id, { target_price: null }).then(load); }}>
-                Clear
-              </button>
-            )}
-          </div>
+          <AlertRulesManager productId={product.id} onChanged={load} />
         )}
       </div>
 

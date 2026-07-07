@@ -169,7 +169,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
             <th>Product</th>
             <th>Lowest now</th>
             <th>Prices by source</th>
-            <th>Target</th>
+            <th>Alerts</th>
           </tr>
         </thead>
         <tbody>
@@ -210,18 +210,22 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                   </div>
                 ))}
               </td>
-              <td data-label="Target">
-                {p.target_price != null ? (
-                  <span
-                    className="price-chip"
-                    style={
-                      p.lowest?.price_sgd != null && p.lowest.price_sgd <= p.target_price
-                        ? { background: '#dcfce7', color: '#166534' }
-                        : undefined
-                    }
-                  >
-                    ≤ {formatPrice(p.target_price, 'SGD')}
-                  </span>
+              <td data-label="Alerts">
+                {p.rules.length ? (
+                  p.rules.map((rule) => (
+                    <div key={rule.id} style={{ marginBottom: 4 }}>
+                      <span
+                        className="price-chip"
+                        style={
+                          p.lowest?.price_sgd != null && p.lowest.price_sgd <= rule.threshold_sgd
+                            ? { background: '#dcfce7', color: '#166534' }
+                            : undefined
+                        }
+                      >
+                        ≤ {formatPrice(rule.threshold_sgd, 'SGD')}
+                      </span>
+                    </div>
+                  ))
                 ) : (
                   <span className="muted">—</span>
                 )}

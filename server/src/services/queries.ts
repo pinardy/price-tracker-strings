@@ -22,6 +22,7 @@ export function listProducts(): any[] {
   for (const link of links) {
     (byProduct.get(link.product_id) ?? byProduct.set(link.product_id, []).get(link.product_id)!).push(link);
   }
+  const rulesByProduct = groupRules();
   return products.map((p) => {
     const productLinks = byProduct.get(p.id) ?? [];
     const priced = productLinks.filter((l) => l.latest_price != null);
@@ -34,6 +35,7 @@ export function listProducts(): any[] {
     return {
       ...p,
       links: productLinks,
+      rules: rulesByProduct.get(p.id) ?? [],
       lowest: lowest
         ? {
             price: lowest.latest_price,
@@ -47,6 +49,19 @@ export function listProducts(): any[] {
   });
 }
 
+function groupRules(productId?: number | string): Map<number, any[]> {
+  const rows = (
+    productId != null
+      ? db.prepare('SELECT id, product_id, threshold_sgd FROM alert_rules WHERE product_id = ? ORDER BY threshold_sgd').all(productId)
+      : db.prepare('SELECT id, product_id, threshold_sgd FROM alert_rules ORDER BY threshold_sgd').all()
+  ) as any[];
+  const grouped = new Map<number, any[]>();
+  for (const row of rows) {
+    (grouped.get(row.product_id) ?? grouped.set(row.product_id, []).get(row.product_id)!).push(row);
+  }
+  return grouped;
+}
+
 function lowestSingleCurrency(priced: any[]): any | null {
   const pool = priced.filter((l) => l.latest_currency === priced[0]?.latest_currency);
   return pool.length ? pool.reduce((a, b) => (b.latest_price < a.latest_price ? b : a)) : null;
@@ -58,7 +73,8 @@ export function getProduct(id: number | string): any | null {
   const links = db
     .prepare(`${LINKS_WITH_LATEST} WHERE l.product_id = ? AND l.is_active = 1`)
     .all(id);
-  return { ...(product as object), links };
+  const rules = groupRules(id).get(Number(id)) ?? [];
+  return { ...(product as object), links, rules };
 }
 
 export function getHistory(productId: number | string, days: number): any[] {

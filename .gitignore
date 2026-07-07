@@ -5,3 +5,4 @@ server/data/*.db-wal
 server/data/*.db-shm
 client/dist/
 client/public/data/
+server/data/app-crud.db
