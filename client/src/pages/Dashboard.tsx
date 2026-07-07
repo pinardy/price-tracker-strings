@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, formatDualPrice, formatPrice, IS_STATIC, Product } from '../api';
-import { ProviderTag } from '../components/ProviderTag';
+import { PROVIDER_LABELS, ProviderTag } from '../components/ProviderTag';
 
 const STALE_HOURS = 36;
 
@@ -11,10 +11,17 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
   const [query, setQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [source, setSource] = useState('');
 
   useEffect(() => {
     api.products().then(setProducts).catch((err) => setError(String(err)));
   }, [dataVersion]);
+
+  const sources = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of products ?? []) for (const l of p.links) ids.add(l.provider_id);
+    return [...ids].sort();
+  }, [products]);
 
   const filtered = useMemo(() => {
     if (!products) return null;
@@ -24,13 +31,14 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     return products.filter((p) => {
       const haystack = `${p.name} ${p.brand ?? ''} ${p.variant_desc ?? ''} ${p.instrument}`.toLowerCase();
       if (!tokens.every((t) => haystack.includes(t))) return false;
+      if (source && !p.links.some((l) => l.provider_id === source)) return false;
       // Price filter compares the current lowest SGD price.
       const price = p.lowest?.price_sgd;
       if (Number.isFinite(min) && (price == null || price < min)) return false;
       if (Number.isFinite(max) && (price == null || price > max)) return false;
       return true;
     });
-  }, [products, query, minPrice, maxPrice]);
+  }, [products, query, minPrice, maxPrice, source]);
 
   if (error) return <div className="card error-text">Failed to load products: {error}</div>;
   if (!products || !filtered) return <div className="card muted">Loading…</div>;
@@ -49,7 +57,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     );
   }
 
-  const filtersActive = query || minPrice || maxPrice;
+  const filtersActive = query || minPrice || maxPrice || source;
 
   return (
     <div className="card table-scroll">
@@ -61,6 +69,14 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <select value={source} onChange={(e) => setSource(e.target.value)}>
+          <option value="">All sources</option>
+          {sources.map((id) => (
+            <option key={id} value={id}>
+              {PROVIDER_LABELS[id] ?? id}
+            </option>
+          ))}
+        </select>
         <label className="muted">
           Price S$
           <input
@@ -94,6 +110,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                 setQuery('');
                 setMinPrice('');
                 setMaxPrice('');
+                setSource('');
               }}
             >
               Clear
