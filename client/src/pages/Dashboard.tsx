@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, formatDualPrice, formatPrice, IS_STATIC, Product } from '../api';
 import { ProviderTag } from '../components/ProviderTag';
@@ -8,13 +8,32 @@ const STALE_HOURS = 36;
 export function Dashboard({ dataVersion }: { dataVersion: number }) {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
 
   useEffect(() => {
     api.products().then(setProducts).catch((err) => setError(String(err)));
   }, [dataVersion]);
 
+  const filtered = useMemo(() => {
+    if (!products) return null;
+    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const min = parseFloat(minPrice);
+    const max = parseFloat(maxPrice);
+    return products.filter((p) => {
+      const haystack = `${p.name} ${p.brand ?? ''} ${p.variant_desc ?? ''} ${p.instrument}`.toLowerCase();
+      if (!tokens.every((t) => haystack.includes(t))) return false;
+      // Price filter compares the current lowest SGD price.
+      const price = p.lowest?.price_sgd;
+      if (Number.isFinite(min) && (price == null || price < min)) return false;
+      if (Number.isFinite(max) && (price == null || price > max)) return false;
+      return true;
+    });
+  }, [products, query, minPrice, maxPrice]);
+
   if (error) return <div className="card error-text">Failed to load products: {error}</div>;
-  if (!products) return <div className="card muted">Loading…</div>;
+  if (!products || !filtered) return <div className="card muted">Loading…</div>;
   if (!products.length) {
     return (
       <div className="card">
@@ -30,8 +49,59 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
     );
   }
 
+  const filtersActive = query || minPrice || maxPrice;
+
   return (
     <div className="card table-scroll">
+      <div className="filter-bar">
+        <input
+          type="search"
+          className="filter-search"
+          placeholder="Search by name, brand, or instrument…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <label className="muted">
+          Price S$
+          <input
+            type="number"
+            min="0"
+            step="1"
+            className="filter-price"
+            placeholder="min"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+          />
+        </label>
+        <span className="muted">–</span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          className="filter-price"
+          placeholder="max"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+        />
+        {filtersActive && (
+          <>
+            <span className="muted">
+              {filtered.length} of {products.length}
+            </span>
+            <button
+              className="small"
+              onClick={() => {
+                setQuery('');
+                setMinPrice('');
+                setMaxPrice('');
+              }}
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </div>
+      {!filtered.length && <p className="muted">No products match the current filters.</p>}
       <table>
         <thead>
           <tr>
@@ -42,7 +112,7 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
           </tr>
         </thead>
         <tbody>
-          {products.map((p) => (
+          {filtered.map((p) => (
             <tr key={p.id}>
               <td>
                 <Link to={`/products/${p.id}`}><strong>{p.name}</strong></Link>{' '}
