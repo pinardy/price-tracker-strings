@@ -27,7 +27,7 @@ A paid Amazon provider (Rainforest/Keepa) can be added later as one module in
 
 ```bash
 npm install
-npm run seed      # optional: 6 well-known string sets with verified store links
+npm run seed      # optional: starter catalog of 21 tracked strings with verified store links
 cp .env.example .env
 npm run dev       # server on :3001, app on http://localhost:5173
 ```
