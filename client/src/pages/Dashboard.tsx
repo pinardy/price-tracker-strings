@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, formatDualPrice, formatPrice, IS_STATIC, Product } from '../api';
+import { api, formatDualPrice, IS_STATIC, Product } from '../api';
 import { PROVIDER_LABELS, ProviderTag } from '../components/ProviderTag';
 
 const STALE_HOURS = 36;
@@ -169,7 +169,6 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
             <th>Product</th>
             <th>Lowest now</th>
             <th>Prices by source</th>
-            <th>Target</th>
           </tr>
         </thead>
         <tbody>
@@ -209,22 +208,6 @@ export function Dashboard({ dataVersion }: { dataVersion: number }) {
                     )}
                   </div>
                 ))}
-              </td>
-              <td data-label="Target">
-                {p.target_price != null ? (
-                  <span
-                    className="price-chip"
-                    style={
-                      p.lowest?.price_sgd != null && p.lowest.price_sgd <= p.target_price
-                        ? { background: '#dcfce7', color: '#166534' }
-                        : undefined
-                    }
-                  >
-                    ≤ {formatPrice(p.target_price, 'SGD')}
-                  </span>
-                ) : (
-                  <span className="muted">—</span>
-                )}
               </td>
             </tr>
           ))}
