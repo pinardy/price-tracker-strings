@@ -2,7 +2,8 @@ import { db } from './connection.js';
 import { migrate } from './migrate.js';
 
 // Handles, variant ids, and WooCommerce variation ids verified live against
-// each store on 2026-07-07. If a store renames a product the fetch run will
+// each store when their entry was added (2026-07-07 for the original six
+// products, 2026-07-08 for everything added since). If a store renames a product the fetch run will
 // log an error for that link and it can be re-attached via the search UI.
 interface SeedLink {
   providerId: string;
@@ -82,6 +83,12 @@ const SEED: {
         variantId: '41109160919092',
         title: 'Pirastro Evah Pirazzi Violin Medium (Set) — "E" - BALL SET',
       },
+      {
+        providerId: 'synwin',
+        externalId: '3628',
+        title: 'Evah Pirazzi Violin Strings — String: Set with E silvery steel ball-end, Size: 4/4',
+        url: 'https://www.synwin.com.sg/product/evah-pirazzi-violin-strings/',
+      },
     ],
   },
   {
@@ -108,6 +115,8 @@ const SEED: {
         variantId: '41109137621044',
         title: 'Pirastro Evah Pirazzi Gold Violin Medium (Set) — G SILVER + E BALL',
       },
+      // No Synwin link: Synwin's only EP Gold set variations (4134/4135, SKU
+      // 415021/415025) are the gold-G sets, not comparable to this silver-G product.
     ],
   },
   {
@@ -133,6 +142,12 @@ const SEED: {
         externalId: 'thomastik-infeld-dominant-viola-set-medium-141',
         variantId: '41020017639476',
         title: 'Thomastik-Infeld Dominant Viola Set Medium #141 — 4/4',
+      },
+      {
+        providerId: 'synwin',
+        externalId: '3817',
+        title: 'Dominant Viola Strings — String: Set, Size: 16"',
+        url: 'https://www.synwin.com.sg/product/dominant-viola-strings/',
       },
     ],
   },
@@ -160,6 +175,12 @@ const SEED: {
         variantId: '41101392511028',
         title: 'Larsen Strings Original Cello (Loose) — "A" - MEDIUM',
       },
+      {
+        providerId: 'synwin',
+        externalId: '4421',
+        title: 'Larsen Cello Strings — String: A',
+        url: 'https://www.synwin.com.sg/product/larsen-cello-strings/',
+      },
     ],
   },
   {
@@ -179,6 +200,316 @@ const SEED: {
         externalId: 'thomastik-spirocore-bass-string-set-3-4-orchestra',
         variantId: '45605374066919',
         title: 'Thomastik-Infeld Spirocore Orchestra Double Bass String Set - 3/4 Size - Medium Gauge',
+      },
+      {
+        providerId: 'synwin',
+        externalId: '4233',
+        title: 'Spirocore Double Bass Strings — String: Set, Size: 3/4',
+        url: 'https://www.synwin.com.sg/product/spirocore-double-bass-strings/',
+      },
+    ],
+  },
+  // Products added 2026-07-08, each linked to every SG source that carries
+  // the same variant (Synwin, Gramercy, LVL). Zyex and Versum sets are
+  // Synwin-only: Gramercy stocks only loose Zyex strings and the Versum
+  // *Solo* set; LVL only Versum A/D singles.
+  {
+    name: 'Thomastik Peter Infeld (PI) Violin Set',
+    instrument: 'violin',
+    brand: 'Thomastik-Infeld',
+    variant_desc: '4/4, medium, platinum E',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3909',
+        title: 'Peter Infeld Violin Strings — String: Set with platinum E',
+        url: 'https://www.synwin.com.sg/product/peter-infeld-violin-strings-2/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'thomastik-infeld-peter-infeld-violin-set-medium-pi100',
+        variantId: '41108908376116',
+        title: 'Thomastik-Infeld Peter Infeld Violin Set Medium — "E" PLATINIUM SET #PI100',
+      },
+      {
+        providerId: 'lvl',
+        externalId: '25451',
+        title: 'Peter Infeld Violin Strings — String: Set with platinum E',
+        url: 'https://www.lvlmusicacademy.com/shop/violin-strings/peter-infeld-violin-strings/',
+      },
+    ],
+  },
+  {
+    name: 'Pirastro Obligato Violin Set',
+    instrument: 'violin',
+    brand: 'Pirastro',
+    variant_desc: '4/4, medium, gold E, ball end',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3866',
+        title: 'Obligato Violin Strings — String: Set with gold E ball-end',
+        url: 'https://www.synwin.com.sg/product/obligato-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-obligato-violin-medium-set',
+        variantId: '41109231370292',
+        title: 'Pirastro Obligato Violin Medium (Set) — #411021 SET',
+      },
+    ],
+  },
+  {
+    name: 'Pirastro Tonica Violin Set',
+    instrument: 'violin',
+    brand: 'Pirastro',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3345',
+        title: 'Tonica Violin Strings — String: Set, Size: 4/4',
+        url: 'https://www.synwin.com.sg/product/tonica-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-tonica-violin-medium-set-412021',
+        variantId: '41109271969844',
+        title: 'Pirastro Tonica Violin Medium (Set) — 4/4',
+      },
+      {
+        providerId: 'lvl',
+        externalId: '18149',
+        title: 'Pirastro Tonica Violin Strings — Size: 4/4, String: Set',
+        url: 'https://www.lvlmusicacademy.com/shop/violin-strings/pirastro-tonica-violin-strings/',
+      },
+    ],
+  },
+  {
+    name: 'Pirastro Passione Violin Set',
+    instrument: 'violin',
+    brand: 'Pirastro',
+    variant_desc: '4/4, medium, ball end E',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '8853',
+        title: 'Passione Violin Strings — String: Set with ball-end E',
+        url: 'https://www.synwin.com.sg/product/passione-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-passione-violin-set-medium-219081',
+        variantId: '41109268856884',
+        title: 'Pirastro Passione Violin Set Medium — #219021 "E" BALL SET',
+      },
+    ],
+  },
+  {
+    name: 'Pirastro Perpetual Violin Set',
+    instrument: 'violin',
+    brand: 'Pirastro',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '7085',
+        title: 'Perpetual Violin Strings Set — String: Set',
+        url: 'https://www.synwin.com.sg/product/perpetual-violin-strings-set/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-perpetual-violin-set-medium-41a021',
+        variantId: '40645988581428',
+        title: 'Pirastro Perpetual Violin Set Medium',
+      },
+    ],
+  },
+  {
+    name: 'Thomastik Rondo Violin Set',
+    instrument: 'violin',
+    brand: 'Thomastik-Infeld',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '5654',
+        title: 'Rondo® Violin Strings — String: Set',
+        url: 'https://www.synwin.com.sg/product/rondo-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'thomastik-infeld-rondo-violin-set-4-4-medium-ro100',
+        variantId: '45934209171508',
+        title: 'Thomastik-Infeld Rondo Violin Set 4/4 Medium #RO100',
+      },
+    ],
+  },
+  {
+    name: 'Pirastro Evah Pirazzi Neo Violin Set',
+    instrument: 'violin',
+    brand: 'Pirastro',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '9701',
+        title: 'Evah Pirazzi Neo Violin Strings',
+        url: 'https://www.synwin.com.sg/product/evah-pirazzi-neo-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'pirastro-evah-pirazzi-neo-violin-set-4-4-synthetic-core-medium-41b021',
+        variantId: '47141723045940',
+        title: 'Pirastro Evah Pirazzi Neo Violin Set 4/4 Synthetic Core Medium',
+      },
+    ],
+  },
+  {
+    name: 'Larsen Magnacore Cello Set',
+    instrument: 'cello',
+    brand: 'Larsen',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '4078',
+        title: 'Larsen Magnacore Cello Strings — String: Set',
+        url: 'https://www.synwin.com.sg/product/larsen-magnacore-cello-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'larsen-strings-magnacore-cello-set-medium-334905',
+        variantId: '40646025740340',
+        title: 'Larsen Strings Magnacore Cello Set Medium',
+      },
+    ],
+  },
+  {
+    name: 'Thomastik Versum Cello Set',
+    instrument: 'cello',
+    brand: 'Thomastik-Infeld',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3800',
+        title: 'Versum Cello Strings — String: Set',
+        url: 'https://www.synwin.com.sg/product/versum-cello-strings/',
+      },
+    ],
+  },
+  {
+    name: 'Thomastik Spirocore Cello Tungsten G+C',
+    instrument: 'cello',
+    brand: 'Thomastik-Infeld',
+    variant_desc: '4/4, tungsten',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '4062',
+        title: 'Spirocore Cello Tungsten Strings — String: G + C',
+        url: 'https://www.synwin.com.sg/product/spirocore-cello-tungsten-strings/',
+      },
+      {
+        providerId: 'lvl',
+        externalId: '24363',
+        title: 'Spirocore Tungsten Cello Strings — String: G + C',
+        url: 'https://www.lvlmusicacademy.com/shop/cello-strings/spirocore-tungsten-cello-strings/',
+      },
+    ],
+  },
+  {
+    name: 'Jargar Cello Set',
+    instrument: 'cello',
+    brand: 'Jargar',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '4003',
+        title: 'Jargar Cello Strings — String: Set, Tension: Medium',
+        url: 'https://www.synwin.com.sg/product/jargar-cello-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'jargar-strings-classic-cello-medium',
+        variantId: '41100269420596',
+        title: 'Jargar Strings Classic Cello Medium — #J5555 - 4/4 MEDIUM SET',
+      },
+    ],
+  },
+  {
+    name: 'Thomastik Alphayue Violin Set',
+    instrument: 'violin',
+    brand: 'Thomastik-Infeld',
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3073',
+        title: 'Alphayue Violin Strings — String: Set, Size: 4/4',
+        url: 'https://www.synwin.com.sg/product/alphayue-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'thomastik-infeld-alphayue-violin-set-4-4-synthetic-core-medium-al100',
+        variantId: '47141573427252',
+        title: 'Thomastik-Infeld Alphayue Violin Set 4/4 Synthetic Core Medium',
+      },
+    ],
+  },
+  {
+    name: "D'Addario Prelude Violin Set",
+    instrument: 'violin',
+    brand: "D'Addario",
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '6236',
+        title: 'Prelude Violin Strings — String: Set, Size: 4/4',
+        url: 'https://www.synwin.com.sg/product/prelude-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'daddario-prelude-violin-set-medium-j810',
+        variantId: '40646130008116',
+        title: "D'Addario Prelude Violin Set Medium #J810 — 4/4",
+      },
+    ],
+  },
+  {
+    name: "D'Addario Zyex Violin Set",
+    instrument: 'violin',
+    brand: "D'Addario",
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3519',
+        title: 'Zyex Violin Strings — String: Set',
+        url: 'https://www.synwin.com.sg/product/zyex-violin-strings/',
+      },
+    ],
+  },
+  {
+    name: "D'Addario Helicore Violin Set",
+    instrument: 'violin',
+    brand: "D'Addario",
+    variant_desc: '4/4, medium',
+    links: [
+      {
+        providerId: 'synwin',
+        externalId: '3494',
+        title: 'Helicore Violin Strings — String: Set',
+        url: 'https://www.synwin.com.sg/product/helicore-violin-strings/',
+      },
+      {
+        providerId: 'gramercy',
+        externalId: 'daddario-helicore-violin-set-medium-h310',
+        variantId: '41099287887924',
+        title: "D'Addario Helicore Violin Set Medium #H310 — H310 4/4 (set)",
       },
     ],
   },
