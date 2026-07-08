@@ -39,6 +39,7 @@ a:hover { text-decoration: underline; }
 }
 
 .app-header .brand { font-weight: 700; font-size: 17px; color: var(--text); }
+.app-header .brand:hover { text-decoration: none; }
 .app-header nav { display: flex; gap: 16px; flex: 1; }
 .app-header nav a { color: var(--muted); font-weight: 500; }
 .app-header nav a.active { color: var(--accent); }

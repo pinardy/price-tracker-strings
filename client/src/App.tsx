@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes } from 'react-router-dom';
 import { IS_STATIC } from './api';
 import { FetchStatusBar } from './components/FetchStatusBar';
 import { Dashboard } from './pages/Dashboard';
@@ -17,16 +17,13 @@ export default function App() {
   return (
     <>
       <header className="app-header">
-        <span className="brand">🎻 String Price Tracker</span>
-        <nav>
-          <NavLink to="/" end>Dashboard</NavLink>
-          {!IS_STATIC && <NavLink to="/add">Add Product</NavLink>}
-        </nav>
+        <Link to="/" className="brand">🎻 String Price Tracker</Link>
+        <nav />
         <FetchStatusBar onRunFinished={onDataChanged} />
       </header>
       {IS_STATIC && (
         <div className="static-banner">
-          Read-only snapshot — prices update daily via GitHub Actions.
+          Read-only snapshot — prices update daily.
         </div>
       )}
       <main>
